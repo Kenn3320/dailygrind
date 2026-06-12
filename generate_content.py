@@ -1,19 +1,17 @@
 """
-Nexora Labs - TikTok Motivation Auto Generator
-Simpan gambar langsung ke repo (latest_slides/)
+Kenn - TikTok Motivation Auto Generator
 """
 
 import os
 import json
 import textwrap
 from pathlib import Path
-from datetime import datetime
 
 import requests
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-GROQ_API_KEY = os.environ["GROQ_API_KEY"]
+GROQ_API_KEY   = os.environ["GROQ_API_KEY"]
 CANVAS_W, CANVAS_H = 1080, 1920
 SLIDES_PER_POST    = 5
 OUTPUT_DIR         = Path("latest_slides")
@@ -21,7 +19,16 @@ OUTPUT_DIR         = Path("latest_slides")
 FONT_TITLE = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 FONT_BODY  = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 
-def generate_quotes() -> list:
+# Tiap slide beda tema warna
+THEMES = [
+    {"name": "Crimson",  "base": (50, 5,  5),  "accent": (200, 0,   0)},
+    {"name": "Cobalt",   "base": (5,  10, 50), "accent": (0,   80, 220)},
+    {"name": "Forest",   "base": (5,  30, 10), "accent": (0,  160,  60)},
+    {"name": "Violet",   "base": (20, 5,  40), "accent": (140,  0, 200)},
+    {"name": "Ember",    "base": (40, 15, 0),  "accent": (220, 100,  0)},
+]
+
+def generate_quotes():
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json"
@@ -52,30 +59,35 @@ def generate_quotes() -> list:
     content = content.replace("```json", "").replace("```", "").strip()
     return json.loads(content)
 
-def grunge_texture(w, h):
-    base = np.zeros((h, w, 3), dtype=np.uint8)
+def grunge_texture(w, h, base_color):
+    arr = np.zeros((h, w, 3), dtype=np.uint8)
+    r, g, b = base_color
     for y in range(h):
         ratio = y / h
-        base[y, :, 0] = int(40 * ratio + 10)
-        base[y, :, 1] = int(5 * ratio)
-        base[y, :, 2] = int(5 * ratio)
-    noise = np.random.randint(-30, 30, (h, w, 3), dtype=np.int16)
-    return np.clip(base.astype(np.int16) + noise, 0, 255).astype(np.uint8)
+        arr[y, :, 0] = int(r * ratio + 8)
+        arr[y, :, 1] = int(g * ratio + 4)
+        arr[y, :, 2] = int(b * ratio + 4)
+    noise = np.random.randint(-25, 25, (h, w, 3), dtype=np.int16)
+    return np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
 def make_slide(quote, slide_num, total):
-    img  = Image.fromarray(grunge_texture(CANVAS_W, CANVAS_H))
-    draw = ImageDraw.Draw(img)
+    theme  = THEMES[(slide_num - 1) % len(THEMES)]
+    img    = Image.fromarray(grunge_texture(CANVAS_W, CANVAS_H, theme["base"]))
+    draw   = ImageDraw.Draw(img)
+    accent = theme["accent"]
 
-    draw.rectangle([80, 160, CANVAS_W-80, 165], fill=(180, 0, 0))
-    draw.rectangle([80, CANVAS_H-165, CANVAS_W-80, CANVAS_H-160], fill=(180, 0, 0))
+    # Accent lines
+    draw.rectangle([80, 160, CANVAS_W-80, 165], fill=accent)
+    draw.rectangle([80, CANVAS_H-165, CANVAS_W-80, CANVAS_H-160], fill=accent)
 
     try:
         font_quote   = ImageFont.truetype(FONT_TITLE, 72)
-        font_accent  = ImageFont.truetype(FONT_BODY, 38)
-        font_counter = ImageFont.truetype(FONT_BODY, 32)
+        font_brand   = ImageFont.truetype(FONT_BODY,  38)
+        font_counter = ImageFont.truetype(FONT_BODY,  32)
     except IOError:
-        font_quote = font_accent = font_counter = ImageFont.load_default()
+        font_quote = font_brand = font_counter = ImageFont.load_default()
 
+    # Quote text
     wrapped = textwrap.fill(quote.upper(), width=18)
     lines   = wrapped.split("\n")
     line_h  = 88
@@ -86,23 +98,27 @@ def make_slide(quote, slide_num, total):
         text_w = bbox[2] - bbox[0]
         x = (CANVAS_W - text_w) // 2
         y = y_start + i * line_h
-        draw.text((x+3, y+3), line, font=font_quote, fill=(80, 0, 0))
+        # Shadow dengan warna accent gelap
+        shadow = tuple(max(0, c - 120) for c in accent)
+        draw.text((x+3, y+3), line, font=font_quote, fill=shadow)
         draw.text((x, y),     line, font=font_quote, fill=(255, 255, 255))
 
-    brand = "NEXORA LABS"
-    bbox  = draw.textbbox((0, 0), brand, font=font_accent)
-    draw.text(((CANVAS_W - (bbox[2]-bbox[0])) // 2, 100), brand,
-              font=font_accent, fill=(180, 0, 0))
+    # Branding "KENN"
+    brand = "KENN"
+    bbox  = draw.textbbox((0, 0), brand, font=font_brand)
+    draw.text(((CANVAS_W - (bbox[2]-bbox[0])) // 2, 100),
+              brand, font=font_brand, fill=accent)
 
+    # Slide counter
     draw.text((CANVAS_W-100, CANVAS_H-120), f"{slide_num}/{total}",
               font=font_counter, fill=(120, 120, 120))
+
     return img
 
 def main():
-    print("🚀 Nexora Labs - Content Generator starting...")
+    print("🚀 Kenn - Content Generator starting...")
     OUTPUT_DIR.mkdir(exist_ok=True)
 
-    # Hapus slide lama
     for old in OUTPUT_DIR.glob("*.jpg"):
         old.unlink()
 
@@ -115,9 +131,10 @@ def main():
         img   = make_slide(quote, i, SLIDES_PER_POST)
         fname = OUTPUT_DIR / f"slide_{i}.jpg"
         img.save(fname, "JPEG", quality=92)
-        print(f"   Slide {i}: {fname.name}")
+        theme = THEMES[(i-1) % len(THEMES)]
+        print(f"   Slide {i} [{theme['name']}]: {fname.name}")
 
-    print("✅ Done! Slides saved to latest_slides/")
+    print("✅ Done!")
 
 if __name__ == "__main__":
     main()
