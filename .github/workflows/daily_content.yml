@@ -1,0 +1,58 @@
+name: 🎨 Daily TikTok Content Generator
+
+on:
+  schedule:
+    # Jalan setiap hari jam 08:00 WIB (01:00 UTC)
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+    # Bisa trigger manual dari GitHub UI (buat testing)
+
+jobs:
+  generate-content:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # 1. Checkout repo
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Setup Python
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      # 3. Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            pillow \
+            numpy \
+            requests \
+            google-auth \
+            google-api-python-client \
+            google-auth-httplib2
+
+      # 4. Install fonts (DejaVu sudah built-in di ubuntu-latest)
+      - name: Verify fonts
+        run: fc-list | grep -i dejavu | head -5
+
+      # 5. Run content generator
+      - name: Generate & Upload Content
+        env:
+          GROQ_API_KEY:       ${{ secrets.GROQ_API_KEY }}
+          GDRIVE_CREDS_JSON:  ${{ secrets.GDRIVE_CREDS_JSON }}
+          DRIVE_FOLDER_ID:    ${{ secrets.DRIVE_FOLDER_ID }}
+        run: python generate_content.py
+
+      # 6. Upload output slides sebagai artifact (opsional, buat debug)
+      - name: Save slides as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: slides-${{ github.run_number }}
+          path: output_slides/
+          retention-days: 3
