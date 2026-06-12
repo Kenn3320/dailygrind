@@ -39,9 +39,11 @@ def generate_quotes():
             {
                 "role": "system",
                 "content": (
-                    "You are a raw, authentic motivational voice. "
-                    "Write 5 short, hard-hitting English motivation quotes. "
-                    "No fluff. Each quote max 15 words. "
+                    "You write raw, minimalist motivational text for TikTok slides. "
+                    "Style examples: its you vs you, no one coming to save you, "
+                    "take the risk, do the hard thing, get out of your comfort zone. "
+                    "Rules: max 6 words per quote, all lowercase, no punctuation, "
+                    "no hashtags, brutally honest. "
                     "Return ONLY a JSON array of 5 strings, nothing else."
                 )
             },
